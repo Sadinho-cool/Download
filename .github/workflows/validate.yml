@@ -1,0 +1,35 @@
+name: Validate Y2Betok
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check JavaScript syntax
+        run: node --check script.js
+      - name: Check JavaScript selectors exist in HTML
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const js = readFileSync('script.js', 'utf8');
+          const html = readFileSync('index.html', 'utf8');
+          const used = [...js.matchAll(/\$\("#([a-zA-Z0-9_-]+)"\)/g)].map(m => m[1]);
+          const ids = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]));
+          const missing = [...new Set(used)].filter(id => !ids.has(id));
+          if (missing.length) {
+            console.error('Missing HTML ids:', missing.join(', '));
+            process.exit(1);
+          }
+          console.log('JavaScript syntax and HTML selectors look good.');
+          NODE
